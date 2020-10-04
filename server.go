@@ -100,26 +100,25 @@ func postprocessResponse(resp *fasthttp.Response, c *fiber.Ctx) error {
 	resp.Header.Add("x-proxy-by", "gaxy")
 
 	// replace contains in ga.js
-	if strings.Contains(c.Params("*"), "ga.js") {
-		// Do we need to decompress the response?
-		contentEncoding := resp.Header.Peek("Content-Encoding")
-		var body []byte
-		if bytes.EqualFold(contentEncoding, []byte("gzip")) {
-			fmt.Println("Unzipping...")
-			body, _ = resp.BodyGunzip()
-		} else {
-			body = resp.Body()
-		}
+	// if strings.Contains(c.Params("*"), "ga.js") {
+	// 	// Do we need to decompress the response?
+	// 	contentEncoding := resp.Header.Peek("Content-Encoding")
+	// 	var body []byte
+	// 	if bytes.EqualFold(contentEncoding, []byte("gzip")) {
+	// 		fmt.Println("Unzipping...")
+	// 		body, _ = resp.BodyGunzip()
+	// 	} else {
+	// 		body = resp.Body()
+	// 	}
 
-		bodyString := string(body[:])
-		bodyString = strings.ReplaceAll(bodyString, "https://ssl.google-analytics.com", c.BaseURL())
-		bodyString = strings.ReplaceAll(bodyString, "http://www.google-analytics.com", c.BaseURL())
-		bodyString = strings.ReplaceAll(bodyString, "https://www.google-analytics.com", c.BaseURL())
-		bodyString = strings.ReplaceAll(bodyString, "www.google-analytics.com", c.Hostname())
-		fmt.Printf("--> %s <---- %s \n", c.Params("*"), bodyString)
+	// 	bodyString := string(body[:])
+	// 	bodyString = strings.ReplaceAll(bodyString, "https://ssl.google-analytics.com", c.BaseURL())
+	// 	bodyString = strings.ReplaceAll(bodyString, "http://www.google-analytics.com", c.BaseURL())
+	// 	bodyString = strings.ReplaceAll(bodyString, "https://www.google-analytics.com", c.BaseURL())
+	// 	bodyString = strings.ReplaceAll(bodyString, "www.google-analytics.com", c.Hostname())
 
-		resp.SetBodyString(bodyString)
-	}
+	// 	// resp.SetBodyString(bodyString)
+	// }
 
 	return nil
 }
