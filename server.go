@@ -57,7 +57,9 @@ func handleRequestAndRedirect(c *fiber.Ctx) error {
 
 	// Prepare request
 	prepareRequest(req, c)
-	fmt.Printf("GET %s -> proxy_url: %s", c.Params("*"), req.String())
+	fmt.Printf("GET %s -> making request to %s", c.Params("*"), req.String())
+
+	// Start request to dest URL
 	if err := proxyClient.Do(req, resp); err != nil {
 		return err
 	}
@@ -97,27 +99,6 @@ func prepareRequest(req *fasthttp.Request, c *fiber.Ctx) {
 func postprocessResponse(resp *fasthttp.Response, c *fiber.Ctx) error {
 	// Inject
 	resp.Header.Add("x-proxy-by", "gaxy")
-
-	// replace contains in ga.js
-	// if strings.Contains(c.Params("*"), "ga.js") {
-	// 	// Do we need to decompress the response?
-	// 	contentEncoding := resp.Header.Peek("Content-Encoding")
-	// 	var body []byte
-	// 	if bytes.EqualFold(contentEncoding, []byte("gzip")) {
-	// 		fmt.Println("Unzipping...")
-	// 		body, _ = resp.BodyGunzip()
-	// 	} else {
-	// 		body = resp.Body()
-	// 	}
-
-	// 	bodyString := string(body[:])
-	// 	bodyString = strings.ReplaceAll(bodyString, "https://ssl.google-analytics.com", c.BaseURL())
-	// 	bodyString = strings.ReplaceAll(bodyString, "http://www.google-analytics.com", c.BaseURL())
-	// 	bodyString = strings.ReplaceAll(bodyString, "https://www.google-analytics.com", c.BaseURL())
-	// 	bodyString = strings.ReplaceAll(bodyString, "www.google-analytics.com", c.Hostname())
-
-	// 	// resp.SetBodyString(bodyString)
-	// }
 
 	return nil
 }
