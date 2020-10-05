@@ -15,7 +15,7 @@ type Config struct {
 // LoadConfig returns a new Config struct
 func LoadConfig() *Config {
 	config := Config{
-		GoogleOrigin:               getEnv("GOOGLE_ORIGIN", "https://ssl.google-analytics.com"),
+		GoogleOrigin:               getEnv("GOOGLE_ORIGIN", "https://google-analytics.com"),
 		InjectParamsFromReqHeaders: getEnv("INJECT_PARAMS_FROM_REQ_HEADERS", ""),
 		Port:                       getEnv("PORT", "3000"),
 	}
