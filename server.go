@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"net/url"
@@ -107,16 +108,28 @@ func postprocessResponse(resp *fasthttp.Response, c *fiber.Ctx) error {
 		} else {
 			body = resp.Body()
 		}
-
 		bodyString := string(body[:])
-		bodyString = strings.ReplaceAll(bodyString, "https://ssl.google-analytics.com", c.BaseURL())
-		bodyString = strings.ReplaceAll(bodyString, "http://www.google-analytics.com", c.BaseURL())
-		bodyString = strings.ReplaceAll(bodyString, "https://www.google-analytics.com", c.BaseURL())
-		bodyString = strings.ReplaceAll(bodyString, "www.google-analytics.com", c.Hostname())
 
+		url, _ := url.Parse(config.GoogleOrigin)
+		currentHost := url.Host
+		find := []string{
+			"ssl.google-analytics.com",
+			"www.google-analytics.com",
+			"google-analytics.com",
+		}
+		for _, toReplace := range find {
+			r := strings.NewReplacer(toReplace, currentHost)
+			bodyString = r.Replace(bodyString)
+		}
+
+		// Error: incorrect header check
 		// resp.SetBodyString(bodyString)
-	}
 
+		newResp := fasthttp.Response{}
+		resp.CopyTo(&newResp)
+		newResp.SetBodyString(bodyString)
+		resp = &newResp
+	}
 
 	return nil
 }
