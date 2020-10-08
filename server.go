@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"net/url"
@@ -18,7 +17,6 @@ var proxyClient = &fasthttp.Client{}
 
 func main() {
 	app := Setup()
-
 	// Start server
 	fmt.Printf("Listen on port %s", config.Port)
 	log.Fatal(app.Listen(fmt.Sprintf(":%s", config.Port)))
@@ -30,39 +28,60 @@ func Setup() *fiber.App {
 
 	// CORS
 	app.Use(cors.New())
+
 	// Logger
 	app.Use(logger.New())
-	// Ping
-	app.Get("/ping", func(c *fiber.Ctx) error {
-		return c.Send([]byte("pong"))
-	})
 
 	// Handler
+	if config.RoutePrefix != "" {
+		subRoute := app.Group(config.RoutePrefix)
+		subRoute.Get("/ping", pingHandler)
+		subRoute.All("/*", handleRequestAndRedirect)
+	}
+	app.Get("/ping", pingHandler)
 	app.All("/*", handleRequestAndRedirect)
 
 	return app
 }
 
+// Ping handler
+func pingHandler(c *fiber.Ctx) error {
+	return c.Send([]byte("pong"))
+}
+
 // Given a request send it to the appropriate url
 func handleRequestAndRedirect(c *fiber.Ctx) error {
-	req := c.Request()
-	resp := c.Response()
+	upstreamReq := fasthttp.AcquireRequest()
+	upstreamResp := fasthttp.AcquireResponse()
+
+	defer fasthttp.ReleaseRequest(upstreamReq)
+	defer fasthttp.ReleaseResponse(upstreamResp)
+
+	c.Request().CopyTo(upstreamReq)
 
 	// Overwrite
 	url, _ := url.Parse(config.GoogleOrigin)
-	req.SetHost(url.Host)
-	req.URI().SetScheme(url.Scheme)
+	upstreamReq.SetHost(url.Host)
+	upstreamReq.URI().SetScheme(url.Scheme)
+	// Trim prefix
+	reqURI := string(c.Request().RequestURI())
+	if config.RoutePrefix != "" && strings.HasPrefix(reqURI, config.RoutePrefix+"/") {
+		reqURI := string(c.Request().RequestURI())
+		reqURI = strings.TrimPrefix(reqURI, config.RoutePrefix)
+		upstreamReq.SetRequestURI(reqURI)
+	}
 
 	// Prepare request
-	prepareRequest(req, c)
-	fmt.Printf("GET %s -> making request to %s", c.Params("*"), req.String())
+	prepareRequest(upstreamReq, c)
+	fmt.Printf("GET %s -> making request to %s", c.Params("*"), upstreamReq.String())
 
 	// Start request to dest URL
-	if err := proxyClient.Do(req, resp); err != nil {
+	if err := proxyClient.Do(upstreamReq, upstreamResp); err != nil {
 		return err
 	}
+
 	// Post process the response
-	if err := postprocessResponse(resp, c); err != nil {
+	if err := postprocessResponse(upstreamResp, c); err != nil {
 		return err
 	}
 
@@ -70,65 +89,71 @@ func handleRequestAndRedirect(c *fiber.Ctx) error {
 }
 
 // Prepare request
-func prepareRequest(req *fasthttp.Request, c *fiber.Ctx) {
+func prepareRequest(upstreamResp *fasthttp.Request, c *fiber.Ctx) {
 	for _, name := range strings.Split(config.InjectParamsFromReqHeaders, ",") {
 		// Convert header fields to request params
 		// e.g. INJECT_PARAMS_FROM_REQ_HEADERS=uip,user-agent
 		//   will be add this to the URI: ?uip=[VALUE]&user-agent=[VALUE]
 		// To rename the key, use [HEADER_NAME]__[NEW_NAME]
 		// e.g. INJECT_PARAMS_FROM_REQ_HEADERS=x-email__uip,user-agent__ua
-
 		if name != "" {
 			if strings.Contains(name, "__") {
 				ss := strings.Split(name, "__")
 				val := c.Get(ss[0])
-				req.URI().QueryArgs().Add(ss[1], val)
+				upstreamResp.URI().QueryArgs().Add(ss[1], val)
 			} else {
 				val := c.Get(name)
-				req.URI().QueryArgs().Add(name, val)
+				upstreamResp.URI().QueryArgs().Add(name, val)
 			}
 		}
 	}
 
 	// Overwrite IP, UA
-	req.URI().QueryArgs().Add("uip", c.IP())
-	req.URI().QueryArgs().Add("ua", c.Get("User-Agent"))
+	upstreamResp.URI().QueryArgs().Add("uip", c.IP())
+	upstreamResp.URI().QueryArgs().Add("ua", c.Get("User-Agent"))
 }
 
 // Post process response
-func postprocessResponse(resp *fasthttp.Response, c *fiber.Ctx) error {
+func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 	// Inject
-	resp.Header.Add("x-proxy-by", "gaxy")
+	upstreamResp.Header.Add("x-proxy-by", "gaxy")
 
 	if strings.Contains(c.Params("*"), "ga.js") {
-		contentEncoding := resp.Header.Peek("Content-Encoding")
+		contentEncoding := string(upstreamResp.Header.Peek("Content-Encoding"))
 		var body []byte
-		if bytes.EqualFold(contentEncoding, []byte("gzip")) {
-			body, _ = resp.BodyGunzip()
-		} else {
-			body = resp.Body()
+		var err error
+		switch contentEncoding {
+		case "gzip":
+			body, err = upstreamResp.BodyGunzip()
+		case "br":
+			body, err = upstreamResp.BodyUnbrotli()
+		case "deflate":
+			body, err = upstreamResp.BodyInflate()
+		default:
+			body = upstreamResp.Body()
 		}
-		bodyString := string(body[:])
+		if err != nil {
+			return err
+		}
 
-		url, _ := url.Parse(config.GoogleOrigin)
+		bodyString := string(body)
+		url, err := url.Parse(c.BaseURL())
+		if err != nil {
+			return err
+		}
 		currentHost := url.Host
 		find := []string{
 			"ssl.google-analytics.com",
 			"www.google-analytics.com",
 			"google-analytics.com",
 		}
+
 		for _, toReplace := range find {
-			r := strings.NewReplacer(toReplace, currentHost)
-			bodyString = r.Replace(bodyString)
+			bodyString = strings.ReplaceAll(bodyString, toReplace, currentHost)
 		}
 
-		// Error: incorrect header check
-		// resp.SetBodyString(bodyString)
-
-		newResp := fasthttp.Response{}
-		resp.CopyTo(&newResp)
-		newResp.SetBodyString(bodyString)
-		resp = &newResp
+		c.Response().SetBodyString(bodyString)
+		c.Response().Header.SetContentType(string(upstreamResp.Header.ContentType()))
 	}
 
 	return nil
