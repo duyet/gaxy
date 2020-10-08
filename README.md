@@ -30,3 +30,5 @@ From Docker
 ```sh
 docker run -it -p 3000:3000 ghcr.io/duyet/gaxy:latest
 ```
+
+Registry: https://github.com/users/duyet/packages/container/package/gaxy
