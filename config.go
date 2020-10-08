@@ -7,6 +7,7 @@ import (
 
 // Config contains config
 type Config struct {
+	RoutePrefix                string
 	GoogleOrigin               string
 	InjectParamsFromReqHeaders string
 	Port                       string
@@ -15,6 +16,7 @@ type Config struct {
 // LoadConfig returns a new Config struct
 func LoadConfig() *Config {
 	config := Config{
+		RoutePrefix:                getEnv("ROUTE_PREFIX", ""),
 		GoogleOrigin:               getEnv("GOOGLE_ORIGIN", "https://google-analytics.com"),
 		InjectParamsFromReqHeaders: getEnv("INJECT_PARAMS_FROM_REQ_HEADERS", ""),
 		Port:                       getEnv("PORT", "3000"),
