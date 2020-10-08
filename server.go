@@ -149,7 +149,7 @@ func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 		}
 
 		for _, toReplace := range find {
-			bodyString = strings.ReplaceAll(bodyString, toReplace, currentHost)
+			bodyString = strings.ReplaceAll(bodyString, toReplace, currentHost+config.RoutePrefix)
 		}
 
 		c.Response().SetBodyString(bodyString)
