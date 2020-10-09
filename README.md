@@ -32,3 +32,16 @@ docker run -it -p 3000:3000 ghcr.io/duyet/gaxy:latest
 ```
 
 Registry: https://github.com/users/duyet/packages/container/package/gaxy
+
+## Usage
+
+```html
+<!-- Google Analytics -->
+<script>
+window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+ga('create', 'UA-XXXXX-Y', 'auto');
+ga('send', 'pageview');
+</script>
+<script async src='https://your-domain/analytics.js'></script>
+<!-- End Google Analytics -->
+```
