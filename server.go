@@ -130,12 +130,12 @@ func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 	// Add header
 	upstreamResp.Header.Add("x-proxy-by", "gaxy")
 
-	bodyString, err := getBodyString(upstreamResp)
+	bodyString, err := GetBodyString(upstreamResp)
 	if err != nil {
 		return err
 	}
 
-	if c.Get("Content-Type") == "text/javascript" {
+	if string(upstreamResp.Header.ContentType()) == "text/javascript" {
 		find := []string{
 			"ssl.google-analytics.com",
 			"www.google-analytics.com",
@@ -160,8 +160,8 @@ func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 	return nil
 }
 
-// Get body string from fasthttp.Response
-func getBodyString(r *fasthttp.Response) (string, error) {
+// GetBodyString get body string from fasthttp.Response
+func GetBodyString(r *fasthttp.Response) (string, error) {
 	var body []byte
 	var err error
 

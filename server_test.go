@@ -53,7 +53,7 @@ func TestRoutePrefix(t *testing.T) {
 	req2 := httptest.NewRequest("GET", "/prefix/ga.js", nil)
 
 	resp1, err1 := app.Test(req1, -1)
-	assert.Equalf(t, false, err1 != nil, "err should be nil")
+	assert.Equalf(t, false, err1 != nil, "err should not be nil")
 
 	resp2, err2 := app.Test(req2, -1)
 	assert.Equalf(t, false, err2 != nil, "err should be nil")
@@ -62,4 +62,19 @@ func TestRoutePrefix(t *testing.T) {
 	assert.Equalf(t, 200, resp2.StatusCode, "statusCode should be 200")
 
 	os.Setenv("ROUTE_PREFIX", "")
+}
+
+func TestContentReplacement(t *testing.T) {
+	config := LoadConfig()
+	app := Setup(config)
+
+	req := httptest.NewRequest("GET", "/analytics.js", nil)
+
+	resp, err := app.Test(req, -1)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	assert.Contains(t, string(body), "example.com")
 }
