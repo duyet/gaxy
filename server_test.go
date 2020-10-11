@@ -10,7 +10,8 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	app := Setup()
+	config := LoadConfig()
+	app := Setup(config)
 
 	expectedBody := "pong"
 
@@ -26,7 +27,8 @@ func TestServer(t *testing.T) {
 }
 
 func TestGAJS(t *testing.T) {
-	app := Setup()
+	config := LoadConfig()
+	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/ga.js", nil)
 	resp, err := app.Test(req, -1)
@@ -44,7 +46,9 @@ func TestGAJS(t *testing.T) {
 func TestRoutePrefix(t *testing.T) {
 	os.Setenv("ROUTE_PREFIX", "/prefix")
 
-	app := Setup()
+	config := LoadConfig()
+	app := Setup(config)
+
 	req1 := httptest.NewRequest("GET", "/ga.js", nil)
 	req2 := httptest.NewRequest("GET", "/prefix/ga.js", nil)
 

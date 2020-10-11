@@ -14,17 +14,17 @@ type Config struct {
 }
 
 // LoadConfig returns a new Config struct
-func LoadConfig() *Config {
+func LoadConfig() Config {
 	config := Config{
 		RoutePrefix:                getEnv("ROUTE_PREFIX", ""),
-		GoogleOrigin:               getEnv("GOOGLE_ORIGIN", "https://google-analytics.com"),
+		GoogleOrigin:               getEnv("GOOGLE_ORIGIN", "https://www.google-analytics.com"),
 		InjectParamsFromReqHeaders: getEnv("INJECT_PARAMS_FROM_REQ_HEADERS", ""),
 		Port:                       getEnv("PORT", "3000"),
 	}
 
 	fmt.Printf("Loaded config: %+v\n\n", config)
 
-	return &config
+	return config
 }
 
 // Simple helper function to read an environment or return a default value
