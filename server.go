@@ -12,19 +12,26 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-var config = LoadConfig()
 var proxyClient = &fasthttp.Client{}
 
 func main() {
-	app := Setup()
+	var config = LoadConfig()
+	var app = Setup(config)
+
 	// Start server
 	fmt.Printf("Listen on port %s", config.Port)
 	log.Fatal(app.Listen(fmt.Sprintf(":%s", config.Port)))
 }
 
 // Setup Setup a fiber app with all of its routes
-func Setup() *fiber.App {
+func Setup(config Config) *fiber.App {
 	app := fiber.New()
+
+	// Config object
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals("config", config)
+		return c.Next()
+	})
 
 	// CORS
 	app.Use(cors.New())
@@ -51,6 +58,8 @@ func pingHandler(c *fiber.Ctx) error {
 
 // Given a request send it to the appropriate url
 func handleRequestAndRedirect(c *fiber.Ctx) error {
+	config := c.Locals("config").(Config)
+
 	upstreamReq := fasthttp.AcquireRequest()
 	upstreamResp := fasthttp.AcquireResponse()
 
@@ -59,21 +68,20 @@ func handleRequestAndRedirect(c *fiber.Ctx) error {
 
 	c.Request().CopyTo(upstreamReq)
 
+	// Trim prefix
+	reqURI := string(c.Request().RequestURI())
+	if config.RoutePrefix != "" && strings.HasPrefix(reqURI, config.RoutePrefix+"/") {
+		reqURI = strings.TrimPrefix(reqURI, config.RoutePrefix)
+		upstreamReq.SetRequestURI(reqURI)
+	}
 	// Overwrite
 	url, _ := url.Parse(config.GoogleOrigin)
 	upstreamReq.SetHost(url.Host)
 	upstreamReq.URI().SetScheme(url.Scheme)
-	// Trim prefix
-	reqURI := string(c.Request().RequestURI())
-	if config.RoutePrefix != "" && strings.HasPrefix(reqURI, config.RoutePrefix+"/") {
-		reqURI := string(c.Request().RequestURI())
-		reqURI = strings.TrimPrefix(reqURI, config.RoutePrefix)
-		upstreamReq.SetRequestURI(reqURI)
-	}
 
 	// Prepare request
 	prepareRequest(upstreamReq, c)
-	fmt.Printf("GET %s -> making request to %s", c.Params("*"), upstreamReq.String())
+	fmt.Printf("GET %s -> making request to %s", c.Params("*"), upstreamReq.URI().FullURI())
 
 	// Start request to dest URL
 	if err := proxyClient.Do(upstreamReq, upstreamResp); err != nil {
@@ -90,6 +98,8 @@ func handleRequestAndRedirect(c *fiber.Ctx) error {
 
 // Prepare request
 func prepareRequest(upstreamResp *fasthttp.Request, c *fiber.Ctx) {
+	config := c.Locals("config").(Config)
+
 	for _, name := range strings.Split(config.InjectParamsFromReqHeaders, ",") {
 		// Convert header fields to request params
 		// e.g. INJECT_PARAMS_FROM_REQ_HEADERS=uip,user-agent
@@ -115,46 +125,61 @@ func prepareRequest(upstreamResp *fasthttp.Request, c *fiber.Ctx) {
 
 // Post process response
 func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
-	// Inject
+	config := c.Locals("config").(Config)
+
+	// Add header
 	upstreamResp.Header.Add("x-proxy-by", "gaxy")
 
-	if strings.Contains(c.Params("*"), "ga.js") {
-		contentEncoding := string(upstreamResp.Header.Peek("Content-Encoding"))
-		var body []byte
-		var err error
-		switch contentEncoding {
-		case "gzip":
-			body, err = upstreamResp.BodyGunzip()
-		case "br":
-			body, err = upstreamResp.BodyUnbrotli()
-		case "deflate":
-			body, err = upstreamResp.BodyInflate()
-		default:
-			body = upstreamResp.Body()
-		}
-		if err != nil {
-			return err
-		}
+	bodyString, err := GetBodyString(upstreamResp)
+	if err != nil {
+		return err
+	}
 
-		bodyString := string(body)
-		url, err := url.Parse(c.BaseURL())
-		if err != nil {
-			return err
-		}
-		currentHost := url.Host
+	if string(upstreamResp.Header.ContentType()) == "text/javascript" {
 		find := []string{
 			"ssl.google-analytics.com",
 			"www.google-analytics.com",
 			"google-analytics.com",
 		}
 
+		url, err := url.Parse(c.BaseURL())
+		if err != nil {
+			return err
+		}
+		currentHost := url.Host
+
 		for _, toReplace := range find {
 			bodyString = strings.ReplaceAll(bodyString, toReplace, currentHost+config.RoutePrefix)
 		}
-
-		c.Response().SetBodyString(bodyString)
-		c.Response().Header.SetContentType(string(upstreamResp.Header.ContentType()))
 	}
 
+	c.Response().SetBodyString(bodyString)
+	c.Response().Header.SetContentType(string(upstreamResp.Header.ContentType()))
+	c.Response().SetStatusCode(upstreamResp.StatusCode())
+
 	return nil
+}
+
+// GetBodyString get body string from fasthttp.Response
+func GetBodyString(r *fasthttp.Response) (string, error) {
+	var body []byte
+	var err error
+
+	contentEncoding := string(r.Header.Peek("Content-Encoding"))
+	switch contentEncoding {
+	case "gzip":
+		body, err = r.BodyGunzip()
+	case "br":
+		body, err = r.BodyUnbrotli()
+	case "deflate":
+		body, err = r.BodyInflate()
+	default:
+		body = r.Body()
+	}
+	if err != nil {
+		return "", err
+	}
+
+	bodyString := string(body)
+	return bodyString, nil
 }
