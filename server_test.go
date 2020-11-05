@@ -95,3 +95,21 @@ func TestContentReplacementWithPrefix(t *testing.T) {
 
 	assert.Contains(t, string(body), "example.com/prefix")
 }
+
+func TestBehindReverseProxy(t *testing.T) {
+	os.Setenv("ROUTE_PREFIX", "/prefix")
+
+	config := LoadConfig()
+	app := Setup(config)
+
+	req := httptest.NewRequest("GET", "/prefix/analytics.js", nil)
+	req.Header.Add("X-Forwarded-Host", "hihihi.com")
+
+	resp, err := app.Test(req, -1)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	assert.Contains(t, string(body), "hihihi.com/prefix")
+}
