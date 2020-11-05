@@ -1,6 +1,12 @@
-# gaxy
+# gaxy 
 
-Google Analytics / Google Tag Manager Proxy by Go
+![Docker](https://github.com/duyet/gaxy/workflows/Docker/badge.svg)
+![Go test](https://github.com/duyet/gaxy/workflows/Go/badge.svg)
+
+Google Analytics / Google Tag Manager Proxy by Go.
+
+![How it works?](.github/screenshot/how-gaxy-works.png)
+<!-- https://sketchviz.com/@duyet/d4c36c277140a24111a723c439291303/9b91c5b780ff792c7dc08f70d22442a3ac523096 -->
 
 ## Development
 
@@ -69,3 +75,7 @@ ga('send', 'pageview');
 <script async src='https://your-domain/analytics.js'></script>
 <!-- End Google Analytics -->
 ```
+
+## License
+
+MIT
