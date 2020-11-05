@@ -5,7 +5,7 @@
 
 Google Analytics / Google Tag Manager Proxy by Go.
 
-![How it works?](.github/screenshot/how-gaxy-work.png)
+![How it works?](.github/screenshot/how-gaxy-works.png)
 <!-- https://sketchviz.com/@duyet/d4c36c277140a24111a723c439291303/9b91c5b780ff792c7dc08f70d22442a3ac523096 -->
 
 ## Development
