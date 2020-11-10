@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"reflect"
 	"strings"
+	"unsafe"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -148,12 +150,7 @@ func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 			"www.google-analytics.com",
 			"google-analytics.com",
 		}
-
-		url, err := url.Parse(c.BaseURL())
-		if err != nil {
-			return err
-		}
-		currentHost := url.Host
+		currentHost := getGaxyHostName(c)
 
 		for _, toReplace := range find {
 			bodyString = strings.ReplaceAll(bodyString, toReplace, currentHost+config.RoutePrefix)
@@ -189,4 +186,17 @@ func GetBodyString(r *fasthttp.Response) (string, error) {
 
 	bodyString := string(body)
 	return bodyString, nil
+}
+
+func getGaxyHostName(c *fiber.Ctx) string {
+	if host := c.Get("X-Forwarded-Host", ""); host != "" {
+		return host
+	}
+
+	return getString(c.Request().URI().Host())
+}
+
+func getString(b []byte) string {
+	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	return *(*string)(unsafe.Pointer(&reflect.StringHeader{Data: sh.Data, Len: sh.Len}))
 }
