@@ -118,6 +118,13 @@ func prepareRequest(upstreamResp *fasthttp.Request, c *fiber.Ctx) {
 		}
 	}
 
+	for _, name := range strings.Split(config.SkipParamsFromReqHeaders, ",") {
+		// Skip params from original request
+		if name != "" {
+			upstreamResp.URI().QueryArgs().Del(name)
+		}
+	}
+
 	// Overwrite IP, UA
 	upstreamResp.URI().QueryArgs().Add("uip", c.IP())
 	upstreamResp.URI().QueryArgs().Add("ua", c.Get("User-Agent"))
