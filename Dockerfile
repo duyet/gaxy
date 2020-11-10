@@ -9,6 +9,7 @@ WORKDIR /app
 ENV ROUTE_PREFIX \
     GOOGLE_ORIGIN \
     INJECT_PARAMS_FROM_REQ_HEADERS \
+    SKIP_PARAMS_FROM_REQ_HEADERS \
     PORT
 COPY --from=build /go/src/github.com/duyet/gaxy/gaxy .
 EXPOSE 3000

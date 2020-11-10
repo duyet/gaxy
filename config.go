@@ -10,6 +10,7 @@ type Config struct {
 	RoutePrefix                string
 	GoogleOrigin               string
 	InjectParamsFromReqHeaders string
+	SkipParamsFromReqHeaders   string
 	Port                       string
 }
 
@@ -19,6 +20,7 @@ func LoadConfig() Config {
 		RoutePrefix:                getEnv("ROUTE_PREFIX", ""),
 		GoogleOrigin:               getEnv("GOOGLE_ORIGIN", "https://www.google-analytics.com"),
 		InjectParamsFromReqHeaders: getEnv("INJECT_PARAMS_FROM_REQ_HEADERS", ""),
+		SkipParamsFromReqHeaders:   getEnv("SKIP_PARAMS_FROM_REQ_HEADERS", ""),
 		Port:                       getEnv("PORT", "3000"),
 	}
 
