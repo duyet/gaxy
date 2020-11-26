@@ -79,6 +79,25 @@ func TestContentReplacement(t *testing.T) {
 	assert.Contains(t, string(body), "example.com")
 }
 
+func TestInjectHeader(t *testing.T) {
+	os.Setenv("INJECT_PARAMS_FROM_REQ_HEADERS", "x-email__uip,user-agent__ua")
+
+	config := LoadConfig()
+	app := Setup(config)
+
+	req := httptest.NewRequest("GET", "/collect", nil)
+	req.Header.Add("X-Email", "me@duyet.net")
+	req.Header.Add("user-agent", "Unitest")
+
+	resp, err := app.Test(req, -1)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	assert.NotEmpty(t, string(body))
+}
+
 func TestContentReplacementWithPrefix(t *testing.T) {
 	os.Setenv("ROUTE_PREFIX", "/prefix")
 

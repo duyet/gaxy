@@ -21,7 +21,7 @@ func main() {
 	var app = Setup(config)
 
 	// Start server
-	fmt.Printf("Listen on port %s", config.Port)
+	log.Printf("Listen on port %s", config.Port)
 	log.Fatal(app.Listen(fmt.Sprintf(":%s", config.Port)))
 }
 
@@ -83,7 +83,7 @@ func handleRequestAndRedirect(c *fiber.Ctx) error {
 
 	// Prepare request
 	prepareRequest(upstreamReq, c)
-	fmt.Printf("GET %s -> making request to %s", c.Params("*"), upstreamReq.URI().FullURI())
+	log.Printf("GET %s -> making request to %s", c.Params("*"), upstreamReq.URI().FullURI())
 
 	// Start request to dest URL
 	if err := proxyClient.Do(upstreamReq, upstreamResp); err != nil {
@@ -113,9 +113,11 @@ func prepareRequest(upstreamResp *fasthttp.Request, c *fiber.Ctx) {
 				ss := strings.Split(name, "__")
 				val := c.Get(ss[0])
 				upstreamResp.URI().QueryArgs().Add(ss[1], val)
+				log.Printf("Added %s=%s to query string\n", ss[1], val)
 			} else {
 				val := c.Get(name)
 				upstreamResp.URI().QueryArgs().Add(name, val)
+				log.Printf("Added %s=%s to query string\n", name, val)
 			}
 		}
 	}
@@ -124,6 +126,7 @@ func prepareRequest(upstreamResp *fasthttp.Request, c *fiber.Ctx) {
 		// Skip params from original request
 		if name != "" {
 			upstreamResp.URI().QueryArgs().Del(name)
+			log.Printf("Removed %s from query string", name)
 		}
 	}
 
