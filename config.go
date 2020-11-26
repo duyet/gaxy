@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 )
 
@@ -24,7 +24,7 @@ func LoadConfig() Config {
 		Port:                       getEnv("PORT", "3000"),
 	}
 
-	fmt.Printf("Loaded config: %+v\n\n", config)
+	log.Printf("Loaded config: %+v\n\n", config)
 
 	return config
 }
