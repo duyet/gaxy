@@ -60,7 +60,9 @@ The following environment values are provided to customize Gaxy:
 - `INJECT_PARAMS_FROM_REQ_HEADERS`: Convert header fields to request parameters.
   - e.g. `INJECT_PARAMS_FROM_REQ_HEADERS=uip,user-agent` will be add this to the collector URI: `?uip=[VALUE]&user-agent=[VALUE]`
   - To rename the key, use `[HEADER_NAME]__[NEW_NAME]` e.g. `INJECT_PARAMS_FROM_REQ_HEADERS=x-email__uip,user-agent__ua`
-  - List all the parameters of Google Analytics: [https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters](https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters)
+  - List all the parameters of Google Analytics:
+        - https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
+        - https://developers.google.com/analytics/devguides/collection/analyticsjs/field-reference
 - `PORT`: Gaxy webserver port. Default: **8080**
 
 ## Usage
