@@ -57,7 +57,7 @@ The following environment values are provided to customize Gaxy:
 
 - `ROUTE_PREFIX`: Gaxy proxy prefix (e.g. `/analytics`). Default **""**
 - `GOOGLE_ORIGIN`: Hostname to Google Analytics. Default **https://www.google-analytics.com**
-- `INJECT_PARAMS_FROM_REQ_HEADERS`: Convert header fields to request parameters.
+- `INJECT_PARAMS_FROM_REQ_HEADERS`: Convert header fields (if gaxy is behind reverse proxy) to request parameters.
   - e.g. `INJECT_PARAMS_FROM_REQ_HEADERS=uip,user-agent` will be add this to the collector URI: `?uip=[VALUE]&user-agent=[VALUE]`
   - To rename the key, use `[HEADER_NAME]__[NEW_NAME]` e.g. `INJECT_PARAMS_FROM_REQ_HEADERS=x-email__uip,user-agent__ua`
   - List all the parameters of Google Analytics:
