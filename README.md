@@ -1,4 +1,6 @@
-# gaxy 
+# gaxy
+
+Deployment: https://project-gaxy.appspot.com/ga.js
 
 ![Docker](https://github.com/duyet/gaxy/workflows/Docker/badge.svg)
 ![Go test](https://github.com/duyet/gaxy/workflows/Go/badge.svg)
@@ -51,6 +53,18 @@ helm repo add duyet https://duyet.github.io/charts
 helm install google-analytics-proxy duyet/gaxy
 ```
 
+### Using Google App Engine
+
+https://cloud.google.com/appengine/docs/standard/go/quickstart
+
+```sh
+# 1. install gcloud
+# 2. install app-engine-go component
+gcloud components install app-engine-go
+# 3. deploy
+gcloud app deploy
+```
+
 ### Environment variables
 
 The following environment values are provided to customize Gaxy:
@@ -61,7 +75,7 @@ The following environment values are provided to customize Gaxy:
   - e.g. `INJECT_PARAMS_FROM_REQ_HEADERS=uip,user-agent` will be add this to the collector URI: `?uip=[VALUE]&user-agent=[VALUE]`
   - To rename the key, use `[HEADER_NAME]__[NEW_NAME]` e.g. `INJECT_PARAMS_FROM_REQ_HEADERS=x-email__uip,user-agent__ua`
   - List all the parameters of Google Analytics:
-  
+
         - https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
         - https://developers.google.com/analytics/devguides/collection/analyticsjs/field-reference
 
@@ -76,7 +90,7 @@ window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
 ga('create', 'UA-XXXXX-Y', 'auto');
 ga('send', 'pageview');
 </script>
-<script async src='https://your-domain/analytics.js'></script>
+<script async src='https://project-gaxy.appspot.com/analytics.js'></script>
 <!-- End Google Analytics -->
 ```
 
