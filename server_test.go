@@ -44,7 +44,7 @@ func TestGAJS(t *testing.T) {
 }
 
 func TestRoutePrefix(t *testing.T) {
-	os.Setenv("ROUTE_PREFIX", "/prefix")
+	t.Setenv("ROUTE_PREFIX", "/prefix")
 
 	config := LoadConfig()
 	app := Setup(config)
@@ -80,7 +80,7 @@ func TestContentReplacement(t *testing.T) {
 }
 
 func TestContentReplacementWithCustomEnv(t *testing.T) {
-	os.Setenv("GOOGLE_ORIGIN", "https://www.googletagmanager.com")
+	t.Setenv("GOOGLE_ORIGIN", "https://www.googletagmanager.com")
 
 	config := LoadConfig()
 	app := Setup(config)
@@ -100,7 +100,7 @@ func TestContentReplacementWithCustomEnv(t *testing.T) {
 }
 
 func TestInjectHeader(t *testing.T) {
-	os.Setenv("INJECT_PARAMS_FROM_REQ_HEADERS", "x-email__uip,user-agent__ua")
+	t.Setenv("INJECT_PARAMS_FROM_REQ_HEADERS", "x-email__uip,user-agent__ua")
 
 	config := LoadConfig()
 	app := Setup(config)
@@ -119,7 +119,7 @@ func TestInjectHeader(t *testing.T) {
 }
 
 func TestContentReplacementWithPrefix(t *testing.T) {
-	os.Setenv("ROUTE_PREFIX", "/prefix")
+	t.Setenv("ROUTE_PREFIX", "/prefix")
 
 	config := LoadConfig()
 	app := Setup(config)
@@ -136,7 +136,7 @@ func TestContentReplacementWithPrefix(t *testing.T) {
 }
 
 func TestBehindReverseProxy(t *testing.T) {
-	os.Setenv("ROUTE_PREFIX", "/prefix")
+	t.Setenv("ROUTE_PREFIX", "/prefix")
 
 	config := LoadConfig()
 	app := Setup(config)
