@@ -79,6 +79,26 @@ func TestContentReplacement(t *testing.T) {
 	assert.Contains(t, string(body), "example.com")
 }
 
+func TestContentReplacementWithCustomEnv(t *testing.T) {
+	os.Setenv("GOOGLE_ORIGIN", "https://www.googletagmanager.com")
+
+	config := LoadConfig()
+	app := Setup(config)
+
+	req := httptest.NewRequest("GET", "/gtag.js", nil)
+
+	resp, err := app.Test(req, -1)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	body, err := ioutil.ReadAll(resp.Body)
+	assert.Equalf(t, false, err != nil, "err should not be nil")
+
+	assert.Contains(t, string(body), "example.com")
+	
+	// googletagmanager.com should be replaced by example.com
+	assert.NotContains(t, string(body), "googletagmanager.com")
+}
+
 func TestInjectHeader(t *testing.T) {
 	os.Setenv("INJECT_PARAMS_FROM_REQ_HEADERS", "x-email__uip,user-agent__ua")
 
