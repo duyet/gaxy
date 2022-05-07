@@ -147,7 +147,8 @@ func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 		return err
 	}
 
-	if string(upstreamResp.Header.ContentType()) == "text/javascript" {
+	var contentType = string(upstreamResp.Header.ContentType())
+	if strings.HasPrefix(contentType, "text/javascript") || strings.HasPrefix(contentType, "application/javascript") {
 		find := []string{
 			"ssl.google-analytics.com",
 			"www.google-analytics.com",
