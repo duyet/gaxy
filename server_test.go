@@ -10,7 +10,7 @@ import (
 )
 
 func TestServer(t *testing.T) {
-	config := LoadConfig()
+	config := LoadDefaultConfig()
 	app := Setup(config)
 
 	expectedBody := "pong"
@@ -27,7 +27,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestGAJS(t *testing.T) {
-	config := LoadConfig()
+	config := LoadDefaultConfig()
 	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/ga.js", nil)
@@ -44,9 +44,9 @@ func TestGAJS(t *testing.T) {
 }
 
 func TestRoutePrefix(t *testing.T) {
-	t.Setenv("ROUTE_PREFIX", "/prefix")
+	config := LoadDefaultConfig()
+	config.Set("RoutePrefix", "/prefix")
 
-	config := LoadConfig()
 	app := Setup(config)
 
 	req1 := httptest.NewRequest("GET", "/ga.js", nil)
@@ -65,7 +65,7 @@ func TestRoutePrefix(t *testing.T) {
 }
 
 func TestContentReplacement(t *testing.T) {
-	config := LoadConfig()
+	config := LoadDefaultConfig()
 	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/analytics.js", nil)
@@ -80,9 +80,8 @@ func TestContentReplacement(t *testing.T) {
 }
 
 func TestContentReplacementWithCustomEnv(t *testing.T) {
-	t.Setenv("GOOGLE_ORIGIN", "https://www.googletagmanager.com")
-
-	config := LoadConfig()
+	config := LoadDefaultConfig()
+	config.Set("GoogleOrigin", "https://www.googletagmanager.com")
 	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/gtag.js", nil)
@@ -94,15 +93,14 @@ func TestContentReplacementWithCustomEnv(t *testing.T) {
 	assert.Equalf(t, false, err != nil, "err should not be nil")
 
 	assert.Contains(t, string(body), "example.com")
-	
+
 	// googletagmanager.com should be replaced by example.com
 	assert.NotContains(t, string(body), "googletagmanager.com")
 }
 
 func TestInjectHeader(t *testing.T) {
-	t.Setenv("INJECT_PARAMS_FROM_REQ_HEADERS", "x-email__uip,user-agent__ua")
-
-	config := LoadConfig()
+	config := LoadDefaultConfig()
+	config.Set("InjectParamsFromReqHeaders", "x-email__uip,user-agent__ua")
 	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/collect", nil)
@@ -119,9 +117,8 @@ func TestInjectHeader(t *testing.T) {
 }
 
 func TestContentReplacementWithPrefix(t *testing.T) {
-	t.Setenv("ROUTE_PREFIX", "/prefix")
-
-	config := LoadConfig()
+	config := LoadDefaultConfig()
+	config.Set("RoutePrefix", "/prefix")
 	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/prefix/analytics.js", nil)
@@ -136,9 +133,8 @@ func TestContentReplacementWithPrefix(t *testing.T) {
 }
 
 func TestBehindReverseProxy(t *testing.T) {
-	t.Setenv("ROUTE_PREFIX", "/prefix")
-
-	config := LoadConfig()
+	config := LoadDefaultConfig()
+	config.Set("RoutePrefix", "/prefix")
 	app := Setup(config)
 
 	req := httptest.NewRequest("GET", "/prefix/analytics.js", nil)
