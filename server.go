@@ -152,6 +152,8 @@ func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
 			"ssl.google-analytics.com",
 			"www.google-analytics.com",
 			"google-analytics.com",
+			"www.googletagmanager.com",
+			"googletagmanager.com",
 		}
 		currentHost := getGaxyHostName(c)
 
