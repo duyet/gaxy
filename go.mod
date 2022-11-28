@@ -1,6 +1,6 @@
 module github.com/duyet/gaxy
 
-go 1.14
+go 1.19
 
 require (
 	github.com/gofiber/fiber/v2 v2.40.1
