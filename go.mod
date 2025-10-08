@@ -8,7 +8,7 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.11.1
-	github.com/valyala/fasthttp v1.66.0
+	github.com/valyala/fasthttp v1.67.0
 )
 
 require (
@@ -31,7 +31,7 @@ require (
 	github.com/yuin/goldmark v1.4.13 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/mod v0.27.0 // indirect
-	golang.org/x/net v0.44.0 // indirect
+	golang.org/x/net v0.45.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/telemetry v0.0.0-20250807160809-1a19826ec488 // indirect
