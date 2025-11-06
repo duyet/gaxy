@@ -3,7 +3,6 @@ package main
 import (
 	"io"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
