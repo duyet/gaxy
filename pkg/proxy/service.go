@@ -54,11 +54,28 @@ func NewService(cfg *config.Config, m *metrics.Metrics, log *logger.Logger) *Ser
 func (s *Service) ProxyRequest(reqURI string, headers map[string]string, host string) (*Response, error) {
 	start := time.Now()
 
-	// Check cache first
-	if s.cache != nil && s.isCacheable(reqURI) {
-		cacheKey := s.getCacheKey(reqURI)
+	// SECURITY: Validate and sanitize the request URI to prevent SSRF attacks
+	sanitizedURI, err := sanitizeRequestURI(reqURI)
+	if err != nil {
+		s.logger.WithFields(map[string]interface{}{
+			"original_uri": reqURI,
+			"error":        err.Error(),
+		}).Warn("Request URI validation failed")
+		return nil, errors.ValidationError("invalid request URI: " + err.Error())
+	}
+
+	// SECURITY: Additional path validation for Google Analytics endpoints
+	parsedURI, _ := url.Parse(sanitizedURI)
+	if !isAllowedPath(parsedURI.Path) {
+		s.logger.WithField("path", parsedURI.Path).Warn("Request path not in allowed list")
+		return nil, errors.ValidationError("request path not allowed")
+	}
+
+	// Check cache first (use sanitized URI)
+	if s.cache != nil && s.isCacheable(sanitizedURI) {
+		cacheKey := s.getCacheKey(sanitizedURI)
 		if entry, found := s.cache.Get(cacheKey); found {
-			s.logger.WithField("uri", reqURI).Debug("Cache hit")
+			s.logger.WithField("uri", sanitizedURI).Debug("Cache hit")
 
 			// Update metrics
 			stats := s.cache.GetStats()
@@ -70,7 +87,7 @@ func (s *Service) ProxyRequest(reqURI string, headers map[string]string, host st
 				ContentType: entry.ContentType,
 			}, nil
 		}
-		s.logger.WithField("uri", reqURI).Debug("Cache miss")
+		s.logger.WithField("uri", sanitizedURI).Debug("Cache miss")
 	}
 
 	// Prepare upstream request
@@ -85,8 +102,8 @@ func (s *Service) ProxyRequest(reqURI string, headers map[string]string, host st
 		return nil, errors.ConfigError("invalid upstream URL", err)
 	}
 
-	// Build request
-	upstreamReq.SetRequestURI(reqURI)
+	// Build request with sanitized URI
+	upstreamReq.SetRequestURI(sanitizedURI)
 	upstreamReq.SetHost(upstreamURL.Host)
 	upstreamReq.URI().SetScheme(upstreamURL.Scheme)
 
@@ -146,9 +163,9 @@ func (s *Service) ProxyRequest(reqURI string, headers map[string]string, host st
 
 	bodyBytes := []byte(bodyString)
 
-	// Cache if applicable
-	if s.cache != nil && s.isCacheable(reqURI) && statusCode == 200 {
-		cacheKey := s.getCacheKey(reqURI)
+	// Cache if applicable (use sanitized URI)
+	if s.cache != nil && s.isCacheable(sanitizedURI) && statusCode == 200 {
+		cacheKey := s.getCacheKey(sanitizedURI)
 		s.cache.Set(cacheKey, bodyBytes, contentType, statusCode)
 		s.logger.WithField("cache_key", cacheKey).Debug("Cached response")
 
