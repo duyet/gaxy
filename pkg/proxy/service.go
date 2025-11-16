@@ -102,10 +102,18 @@ func (s *Service) ProxyRequest(reqURI string, headers map[string]string, host st
 		return nil, errors.ConfigError("invalid upstream URL", err)
 	}
 
-	// Build request with sanitized URI
-	upstreamReq.SetRequestURI(sanitizedURI)
-	upstreamReq.SetHost(upstreamURL.Host)
+	// SECURITY: Build request using URI components to prevent SSRF
+	// We set the scheme and host from configuration (trusted source),
+	// not from user input. Only the validated path is from user input.
 	upstreamReq.URI().SetScheme(upstreamURL.Scheme)
+	upstreamReq.URI().SetHost(upstreamURL.Host)
+
+	// Set path and query from sanitized, validated URI
+	// parsedURI was already validated by isAllowedPath() above
+	upstreamReq.URI().SetPath(parsedURI.Path)
+	if parsedURI.RawQuery != "" {
+		upstreamReq.URI().SetQueryString(parsedURI.RawQuery)
+	}
 
 	// Copy headers
 	for key, value := range headers {

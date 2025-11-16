@@ -15,11 +15,33 @@ Gaxy implements multiple layers of security to protect against common web applic
 **Vulnerability:** Uncontrolled user input in network requests could allow attackers to access internal services, cloud metadata endpoints, or perform unauthorized actions.
 
 **Protection Implemented:**
-- **URI Validation:** All incoming request URIs are validated and sanitized before proxying
-- **Scheme Blocking:** Rejects URIs containing schemes (http://, https://, file://, etc.)
-- **Host Filtering:** Ensures URIs contain only paths, not full URLs with hosts
-- **Path Whitelisting:** Only allows known Google Analytics/Tag Manager endpoints
-- **Directory Traversal Prevention:** Blocks `..` sequences in paths
+
+Our SSRF protection uses a **defense-in-depth strategy** with multiple validation layers:
+
+1. **URI Sanitization** (`pkg/proxy/validation.go`)
+   - Validates that user input contains only path + query components
+   - Rejects full URLs with schemes (http://, https://, file://, etc.)
+   - Blocks protocol-relative URLs (//)
+   - Prevents directory traversal (..)
+   - Ensures paths start with /
+
+2. **Path Whitelisting**
+   - Only allows known Google Analytics/Tag Manager endpoints
+   - Explicit allowlist prevents access to unauthorized paths
+   - See `isAllowedPath()` in validation.go for full list
+
+3. **Secure Request Construction** (`pkg/proxy/service.go`)
+   - **Critical:** Scheme and host are set from TRUSTED configuration, NOT user input
+   - Only validated path and query are derived from user input
+   - This architecture ensures users cannot control WHERE requests go
+   - Users can only select WHICH Google Analytics endpoint is accessed
+
+**Architecture:**
+```
+User Input (path) → Validation → Whitelist Check → Safe Request
+                                                          ↓
+Config (scheme/host) ──────────────────────────→  https://www.google-analytics.com/[validated-path]
+```
 
 **Example Attack Vectors Blocked:**
 ```
