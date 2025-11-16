@@ -332,7 +332,19 @@ rate(gaxy_cache_hits_total[5m]) / (rate(gaxy_cache_hits_total[5m]) + rate(gaxy_c
 rate(gaxy_requests_total{status=~"5.."}[5m])
 ```
 
-## 🛡️ Security Best Practices
+## 🛡️ Security
+
+Gaxy implements multiple layers of security to protect your infrastructure:
+
+### Built-in Security Features
+- **SSRF Protection**: Validates all request URIs to prevent server-side request forgery
+- **Path Whitelisting**: Only allows known Google Analytics/Tag Manager endpoints
+- **Rate Limiting**: Per-IP token bucket to prevent abuse
+- **Security Headers**: X-Frame-Options, CSP, X-Content-Type-Options
+- **Input Validation**: Comprehensive validation at all entry points
+- **Container Security**: Distroless image, non-root user
+
+### Security Best Practices
 
 1. **Enable Rate Limiting**: Protect against abuse
    ```sh
@@ -353,6 +365,8 @@ rate(gaxy_requests_total{status=~"5.."}[5m])
    ```sh
    make deps
    ```
+
+**For detailed security information, see [SECURITY.md](SECURITY.md).**
 
 ## 🤝 Contributing
 
