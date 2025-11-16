@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  gaxy:
+    build: .
+    image: gaxy:latest
+    container_name: gaxy
+    ports:
+      - "3000:3000"
+    environment:
+      # Server Configuration
+      - PORT=3000
+      - SHUTDOWN_TIMEOUT=10s
+      - READ_TIMEOUT=30s
+      - WRITE_TIMEOUT=30s
+
+      # Routing
+      - ROUTE_PREFIX=/analytics
+
+      # Upstream
+      - GOOGLE_ORIGIN=https://www.google-analytics.com
+      - UPSTREAM_TIMEOUT=10s
+      - UPSTREAM_MAX_IDLE_CONNS=100
+      - UPSTREAM_MAX_CONNS=100
+      - UPSTREAM_RETRY_COUNT=2
+      - UPSTREAM_RETRY_DELAY=100ms
+
+      # Cache
+      - CACHE_ENABLED=true
+      - CACHE_TTL=5m
+      - CACHE_MAX_SIZE=104857600
+      - CACHE_KEY_PATTERN=*.js
+
+      # Rate Limiting
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_RPS=100
+      - RATE_LIMIT_BURST=200
+
+      # Logging
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+
+      # Metrics
+      - METRICS_ENABLED=true
+      - METRICS_PATH=/metrics
+
+      # Security
+      - ENABLE_CORS=true
+      - CORS_ALLOW_ORIGINS=*
+      - ENABLE_SECURITY_HEADERS=true
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

@@ -3,42 +3,59 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
 
+	"github.com/duyet/gaxy/pkg/config"
+	"github.com/duyet/gaxy/pkg/handler"
+	"github.com/duyet/gaxy/pkg/logger"
+	"github.com/duyet/gaxy/pkg/metrics"
+	"github.com/duyet/gaxy/pkg/middleware"
+	"github.com/duyet/gaxy/pkg/proxy"
+	"github.com/duyet/gaxy/pkg/ratelimit"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/valyala/fasthttp"
-)
-
-var (
-	proxyClient = &fasthttp.Client{}
-
-	// googleDomains contains all Google Analytics and Tag Manager domains to be replaced
-	googleDomains = []string{
-		"ssl.google-analytics.com",
-		"www.google-analytics.com",
-		"google-analytics.com",
-		"www.googletagmanager.com",
-		"googletagmanager.com",
-	}
 )
 
 func main() {
-	var config = LoadConfig()
-	var app = Setup(config)
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Printf("Failed to load configuration: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize logger
+	log := logger.New(cfg.LogLevel, cfg.LogFormat)
+	log.Info("Starting gaxy...")
+
+	// Initialize metrics
+	m := metrics.New()
+
+	// Initialize rate limiter
+	var limiter *ratelimit.Limiter
+	if cfg.RateLimitEnabled {
+		limiter = ratelimit.New(cfg.RateLimitRPS, cfg.RateLimitBurst)
+		log.WithFields(map[string]interface{}{
+			"rps":   cfg.RateLimitRPS,
+			"burst": cfg.RateLimitBurst,
+		}).Info("Rate limiting enabled")
+	}
+
+	// Initialize proxy service
+	proxySvc := proxy.NewService(cfg, m, log)
+
+	// Initialize handlers
+	h := handler.New(cfg, proxySvc, m, log)
+
+	// Setup app
+	app := Setup(cfg, h, m, limiter, log)
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting server on port %s", config.Port)
-		if err := app.Listen(fmt.Sprintf(":%s", config.Port)); err != nil {
-			log.Printf("Server error: %v", err)
+		log.WithField("port", cfg.Port).Info("Server starting")
+		if err := app.Listen(fmt.Sprintf(":%s", cfg.Port)); err != nil {
+			log.WithField("error", err.Error()).Error("Server error")
 		}
 	}()
 
@@ -48,204 +65,64 @@ func main() {
 
 	// Block until we receive a signal
 	<-quit
-	log.Println("Shutting down server...")
+	log.Info("Shutting down server...")
 
 	// Create a context with timeout for shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
 	// Attempt graceful shutdown
 	if err := app.ShutdownWithContext(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.WithField("error", err.Error()).Error("Server forced to shutdown")
+		os.Exit(1)
 	}
 
-	log.Println("Server exited gracefully")
+	log.Info("Server exited gracefully")
 }
 
 // Setup creates and configures a fiber app with all routes and middleware
-func Setup(config Config) *fiber.App {
-	app := fiber.New()
-
-	// Config object
-	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("config", config)
-		return c.Next()
+func Setup(cfg *config.Config, h *handler.Handler, m *metrics.Metrics, limiter *ratelimit.Limiter, log *logger.Logger) *fiber.App {
+	// Create app with custom config
+	app := fiber.New(fiber.Config{
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			code := fiber.StatusInternalServerError
+			if e, ok := err.(*fiber.Error); ok {
+				code = e.Code
+			}
+			return c.Status(code).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		},
 	})
 
-	// CORS
-	app.Use(cors.New())
+	// Global middleware
+	app.Use(middleware.Recovery(log))
+	app.Use(middleware.RequestID())
+	app.Use(middleware.CORS(cfg))
+	app.Use(middleware.SecurityHeaders(cfg))
+	app.Use(middleware.Logger(log))
+	app.Use(middleware.Metrics(m))
 
-	// Logger
-	app.Use(logger.New())
-
-	// Handler
-	if config.RoutePrefix != "" {
-		subRoute := app.Group(config.RoutePrefix)
-		subRoute.Get("/ping", pingHandler)
-		subRoute.All("/*", handleRequestAndRedirect)
+	if limiter != nil {
+		app.Use(middleware.RateLimit(cfg, limiter, m, log))
 	}
-	app.Get("/ping", pingHandler)
-	app.All("/*", handleRequestAndRedirect)
+
+	// Health and metrics endpoints
+	app.Get("/ping", h.Ping)
+	app.Get("/health", h.Health)
+
+	if cfg.MetricsEnabled {
+		app.Get(cfg.MetricsPath, h.Metrics)
+	}
+
+	// Proxy routes
+	if cfg.RoutePrefix != "" {
+		subRoute := app.Group(cfg.RoutePrefix)
+		subRoute.All("/*", h.Proxy)
+	}
+	app.All("/*", h.Proxy)
 
 	return app
-}
-
-// pingHandler handles health check requests and returns "pong"
-func pingHandler(c *fiber.Ctx) error {
-	return c.Send([]byte("pong"))
-}
-
-// handleRequestAndRedirect proxies incoming requests to Google Analytics/Tag Manager
-// It handles URL rewriting, request preparation, and response post-processing
-func handleRequestAndRedirect(c *fiber.Ctx) error {
-	config := c.Locals("config").(Config)
-
-	upstreamReq := fasthttp.AcquireRequest()
-	upstreamResp := fasthttp.AcquireResponse()
-
-	defer fasthttp.ReleaseRequest(upstreamReq)
-	defer fasthttp.ReleaseResponse(upstreamResp)
-
-	c.Request().CopyTo(upstreamReq)
-
-	// Trim prefix
-	reqURI := string(c.Request().RequestURI())
-	if config.RoutePrefix != "" && strings.HasPrefix(reqURI, config.RoutePrefix+"/") {
-		reqURI = strings.TrimPrefix(reqURI, config.RoutePrefix)
-		upstreamReq.SetRequestURI(reqURI)
-	}
-
-	// Parse and set upstream URL
-	upstreamURL, err := url.Parse(config.GoogleOrigin)
-	if err != nil {
-		log.Printf("Error parsing Google origin URL: %v", err)
-		return c.Status(fiber.StatusInternalServerError).SendString("Invalid upstream URL configuration")
-	}
-	upstreamReq.SetHost(upstreamURL.Host)
-	upstreamReq.URI().SetScheme(upstreamURL.Scheme)
-
-	// Prepare request
-	prepareRequest(upstreamReq, c)
-	log.Printf("GET %s -> making request to %s", c.Params("*"), upstreamReq.URI().FullURI())
-
-	// Start request to dest URL
-	if err := proxyClient.Do(upstreamReq, upstreamResp); err != nil {
-		return err
-	}
-
-	// Post process the response
-	if err := postprocessResponse(upstreamResp, c); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// prepareRequest prepares the upstream request by injecting headers and parameters
-func prepareRequest(upstreamReq *fasthttp.Request, c *fiber.Ctx) {
-	config := c.Locals("config").(Config)
-
-	// Inject headers as query parameters
-	if config.InjectParamsFromReqHeaders != "" {
-		for _, name := range strings.Split(config.InjectParamsFromReqHeaders, ",") {
-			name = strings.TrimSpace(name)
-			if name == "" {
-				continue
-			}
-
-			// Handle header renaming: [HEADER_NAME]__[NEW_NAME]
-			headerName := name
-			paramName := name
-			if strings.Contains(name, "__") {
-				parts := strings.SplitN(name, "__", 2)
-				headerName = parts[0]
-				paramName = parts[1]
-			}
-
-			val := c.Get(headerName)
-			if val != "" {
-				upstreamReq.URI().QueryArgs().Add(paramName, val)
-				log.Printf("Added %s=%s to query string\n", paramName, val)
-			}
-		}
-	}
-
-	// Skip specified parameters
-	if config.SkipParamsFromReqHeaders != "" {
-		for _, name := range strings.Split(config.SkipParamsFromReqHeaders, ",") {
-			name = strings.TrimSpace(name)
-			if name != "" {
-				upstreamReq.URI().QueryArgs().Del(name)
-				log.Printf("Removed %s from query string", name)
-			}
-		}
-	}
-
-	// Always inject IP and User-Agent
-	upstreamReq.URI().QueryArgs().Add("uip", c.IP())
-	upstreamReq.URI().QueryArgs().Add("ua", c.Get("User-Agent"))
-}
-
-// postprocessResponse processes the upstream response before sending it to the client
-// It replaces Google domains with the current host and adds custom headers
-func postprocessResponse(upstreamResp *fasthttp.Response, c *fiber.Ctx) error {
-	config := c.Locals("config").(Config)
-
-	// Add header
-	upstreamResp.Header.Add("x-proxy-by", "gaxy")
-
-	bodyString, err := GetBodyString(upstreamResp)
-	if err != nil {
-		return err
-	}
-
-	var contentType = string(upstreamResp.Header.ContentType())
-	if strings.HasPrefix(contentType, "text/javascript") || strings.HasPrefix(contentType, "application/javascript") {
-		currentHost := getGaxyHostName(c)
-
-		for _, domain := range googleDomains {
-			bodyString = strings.ReplaceAll(bodyString, domain, currentHost+config.RoutePrefix)
-		}
-	}
-
-	c.Response().SetBodyString(bodyString)
-	c.Response().Header.SetContentType(string(upstreamResp.Header.ContentType()))
-	c.Response().SetStatusCode(upstreamResp.StatusCode())
-
-	return nil
-}
-
-// GetBodyString extracts the body from a fasthttp.Response, handling various compression formats
-// It supports gzip, brotli, and deflate compression
-func GetBodyString(r *fasthttp.Response) (string, error) {
-	var body []byte
-	var err error
-
-	contentEncoding := string(r.Header.Peek("Content-Encoding"))
-	switch contentEncoding {
-	case "gzip":
-		body, err = r.BodyGunzip()
-	case "br":
-		body, err = r.BodyUnbrotli()
-	case "deflate":
-		body, err = r.BodyInflate()
-	default:
-		body = r.Body()
-	}
-	if err != nil {
-		return "", err
-	}
-
-	bodyString := string(body)
-	return bodyString, nil
-}
-
-// getGaxyHostName returns the host name to use for domain replacement
-// It checks for X-Forwarded-Host header first (for reverse proxy setups) and falls back to the request host
-func getGaxyHostName(c *fiber.Ctx) string {
-	if host := c.Get("X-Forwarded-Host", ""); host != "" {
-		return host
-	}
-
-	return string(c.Request().URI().Host())
 }
