@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -39,7 +39,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/gaxy", "--health-check"] || exit 1
+    CMD ["/gaxy", "--health-check"]
 
 # Run the binary
 ENTRYPOINT ["/gaxy"]
