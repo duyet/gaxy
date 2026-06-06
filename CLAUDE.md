@@ -396,7 +396,7 @@ app.Use(middleware.NewMiddleware(deps))
 - Use multi-stage builds
 - Minimize image size (distroless)
 - Run as non-root user
-- Include health checks
+- Include health checks (via the built-in application `--health-check` CLI flag)
 - Set resource limits
 
 ### Kubernetes
@@ -505,6 +505,6 @@ Every line of code is an opportunity to make the system better, more reliable, m
 
 ---
 
-**Last Updated:** 2025-11-16
+**Last Updated:** 2026-06-06
 **Maintainer:** Duyet (github.com/duyet)
-**Contributors:** Claude (AI Assistant)
+**Contributors:** Claude (AI Assistant), Gemini (AI Assistant)
