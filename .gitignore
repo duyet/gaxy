@@ -10,6 +10,13 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+coverage.html
+
+# Binary output directory
+bin/
+
+# Environment variables
+.env
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
