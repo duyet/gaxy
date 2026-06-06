@@ -49,8 +49,8 @@ func New(ttl time.Duration, maxSize int64) *Cache {
 
 // Get retrieves an item from the cache
 func (c *Cache) Get(key string) (*Entry, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	entry, exists := c.data[key]
 	if !exists {

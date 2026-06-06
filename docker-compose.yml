@@ -51,7 +51,7 @@ services:
 
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "/gaxy", "--health-check"]
       interval: 30s
       timeout: 10s
       retries: 3

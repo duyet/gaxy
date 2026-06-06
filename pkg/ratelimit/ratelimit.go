@@ -14,6 +14,7 @@ type Limiter struct {
 }
 
 type bucket struct {
+	mu         sync.Mutex
 	tokens     float64
 	lastUpdate time.Time
 }
@@ -34,20 +35,28 @@ func New(rps, burst int) *Limiter {
 
 // Allow checks if a request from the given IP is allowed
 func (l *Limiter) Allow(ip string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := time.Now()
-
+	l.mu.RLock()
 	b, exists := l.buckets[ip]
+	l.mu.RUnlock()
+
 	if !exists {
-		b = &bucket{
-			tokens:     float64(l.burst),
-			lastUpdate: now,
+		l.mu.Lock()
+		// Double-check
+		b, exists = l.buckets[ip]
+		if !exists {
+			b = &bucket{
+				tokens:     float64(l.burst),
+				lastUpdate: time.Now(),
+			}
+			l.buckets[ip] = b
 		}
-		l.buckets[ip] = b
+		l.mu.Unlock()
 	}
 
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	now := time.Now()
 	// Refill tokens based on time elapsed
 	elapsed := now.Sub(b.lastUpdate).Seconds()
 	b.tokens += elapsed * float64(l.rps)
@@ -77,8 +86,10 @@ func (l *Limiter) cleanup() {
 		l.mu.Lock()
 		now := time.Now()
 		for ip, b := range l.buckets {
-			// Remove buckets that haven't been accessed in 5 minutes
-			if now.Sub(b.lastUpdate) > 5*time.Minute {
+			b.mu.Lock()
+			stale := now.Sub(b.lastUpdate) > 5*time.Minute
+			b.mu.Unlock()
+			if stale {
 				delete(l.buckets, ip)
 			}
 		}

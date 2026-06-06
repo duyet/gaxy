@@ -38,8 +38,8 @@ func (c *Client) Do(req *fasthttp.Request, resp *fasthttp.Response) error {
 
 	for attempt := 0; attempt <= c.retryCount; attempt++ {
 		if attempt > 0 {
-			// Wait before retry
-			time.Sleep(c.retryDelay * time.Duration(attempt))
+			// Wait before retry using exponential backoff
+			time.Sleep(c.retryDelay * time.Duration(1<<(attempt-1)))
 		}
 
 		err := c.client.Do(req, resp)

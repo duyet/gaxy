@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -233,19 +234,11 @@ func percentile(values []float64, p float64) float64 {
 		return 0
 	}
 
-	// Simple percentile calculation (not sorting for performance)
-	// In production, you might want to use a more efficient algorithm
 	sorted := make([]float64, len(values))
 	copy(sorted, values)
 
-	// Simple bubble sort (sufficient for our use case with max 1000 elements)
-	for i := 0; i < len(sorted); i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			if sorted[i] > sorted[j] {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
-		}
-	}
+	// Use highly optimized standard library sort
+	sort.Float64s(sorted)
 
 	index := int(float64(len(sorted)) * p)
 	if index >= len(sorted) {

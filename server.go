@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/duyet/gaxy/pkg/config"
 	"github.com/duyet/gaxy/pkg/handler"
@@ -23,6 +25,17 @@ func main() {
 	if err != nil {
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Check for healthcheck flag
+	for _, arg := range os.Args[1:] {
+		if arg == "--healthcheck" || arg == "--health-check" {
+			if err := runHealthCheck(cfg.Port); err != nil {
+				fmt.Printf("Health check failed: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 	}
 
 	// Initialize logger
@@ -125,4 +138,20 @@ func Setup(cfg *config.Config, h *handler.Handler, m *metrics.Metrics, limiter *
 	app.All("/*", h.Proxy)
 
 	return app
+}
+
+func runHealthCheck(port string) error {
+	url := fmt.Sprintf("http://127.0.0.1:%s/ping", port)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	return nil
 }

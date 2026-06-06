@@ -26,7 +26,7 @@ build:
 # Run the application
 run:
 	@echo "Running gaxy..."
-	@go run *.go
+	@go run .
 
 # Run tests
 test:

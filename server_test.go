@@ -2,7 +2,9 @@ package main
 
 import (
 	"io"
+	"net"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -106,4 +108,26 @@ func TestMetricsEndpoint(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err, "reading body should not fail")
 	assert.Contains(t, string(body), "gaxy_", "body should contain gaxy metrics")
+}
+
+func TestHealthCheckFunc(t *testing.T) {
+	_, app := setupTestApp()
+
+	// Start server on a random port
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NoError(t, err)
+	defer ln.Close()
+
+	port := strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
+
+	go func() {
+		_ = app.Listener(ln)
+	}()
+
+	// Give it a split second to start listening
+	time.Sleep(50 * time.Millisecond)
+
+	// Run healthcheck
+	err = runHealthCheck(port)
+	assert.NoError(t, err)
 }

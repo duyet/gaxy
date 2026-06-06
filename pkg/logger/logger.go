@@ -172,8 +172,12 @@ func (l *Logger) log(level Level, msg string, extraFields map[string]interface{}
 
 	var output string
 	if l.format == "json" {
-		data, _ := json.Marshal(fields)
-		output = string(data)
+		data, err := json.Marshal(fields)
+		if err != nil {
+			output = fmt.Sprintf("[%s] %s: %s --- log marshal error: %v", fields["timestamp"], fields["level"], msg, err)
+		} else {
+			output = string(data)
+		}
 	} else {
 		// Text format
 		output = fmt.Sprintf("[%s] %s: %s", fields["timestamp"], fields["level"], msg)
