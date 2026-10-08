@@ -2,7 +2,7 @@ module github.com/duyet/gaxy
 
 go 1.26.0
 
-toolchain go1.27.1
+toolchain go1.27.2
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.15
